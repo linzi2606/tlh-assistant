@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>The Little House — Trợ lý nội bộ</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{height:100dvh;display:flex;flex-direction:column;background:#0d0f14;font-family:'Nunito',sans-serif;overflow:hidden}
+#header{padding:11px 16px;display:flex;align-items:center;gap:10px;background:rgba(13,15,20,.97);border-bottom:1px solid #1c2030;z-index:10;flex-shrink:0}
+#logo{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;background:linear-gradient(135deg,#e85d04,#f48c06);box-shadow:0 4px 16px rgba(232,93,4,.4);transition:all .4s}
+#title{font-family:'Syne',sans-serif;font-weight:800;font-size:14px;color:white}
+#subtitle{font-size:10.5px;color:#555e72;font-weight:600;margin-top:1px}
+#badge-admin{display:none;color:#34d399;font-size:11px;font-weight:700;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);border-radius:6px;padding:1px 6px;margin-left:6px}
+#btn-updates{display:none;align-items:center;gap:5px;background:#161922;border:1px solid #252a38;border-radius:9px;padding:5px 10px;cursor:pointer;color:#555e72;font-size:11px;font-family:inherit;font-weight:700}
+#btn-toggle{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.35);border-radius:9px;padding:5px 11px;cursor:pointer;color:#34d399;font-size:11px;font-family:inherit;font-weight:700;flex-shrink:0;transition:all .25s}
+#updates-panel{display:none;background:#0e1a16;border-bottom:1px solid #1a2e27;padding:10px 16px;max-height:200px;overflow-y:auto;flex-shrink:0}
+#messages{flex:1;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:12px}
+#messages::-webkit-scrollbar{width:3px}
+#messages::-webkit-scrollbar-thumb{background:#252a38;border-radius:10px}
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;text-align:center;padding:12px 0}
+.w-icon{width:68px;height:68px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:34px;margin-bottom:16px}
+.w-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:white;margin-bottom:5px}
+.w-sub{color:#555e72;font-size:12.5px;max-width:360px;line-height:1.7;margin-bottom:20px}
+.quick-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:480px}
+.qbtn{background:#161922;border:1px solid #252a38;color:#8892a4;padding:7px 12px;border-radius:18px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;transition:all .18s}
+.qbtn:hover{border-color:#e85d04;color:#f48c06;background:rgba(232,93,4,.08)}
+.msg-row{display:flex;align-items:flex-end;gap:8px}
+.msg-row.user{flex-direction:row-reverse}
+.avatar{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.bubble{max-width:76%;padding:10px 14px;font-size:13.5px;line-height:1.7}
+.bubble.u{background:linear-gradient(135deg,#e85d04,#f48c06);border-radius:16px 16px 4px 16px;color:white;box-shadow:0 4px 14px rgba(232,93,4,.25)}
+.bubble.b{background:#161922;border:1px solid #252a38;border-radius:16px 16px 16px 4px;color:#c8d0e0;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.bubble.ua{background:linear-gradient(135deg,#059669,#34d399);border-radius:16px 16px 4px 16px;color:white;box-shadow:0 4px 14px rgba(5,150,105,.25)}
+.bubble.ba{background:#0e1a16;border:1px solid #1a2e27;border-radius:16px 16px 16px 4px;color:#a7f3d0;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.bubble p{margin:3px 0}
+.bubble hr{border:none;border-top:1px solid #1c2030;margin:8px 0}
+.bubble .bl{padding-left:10px;border-left:2px solid rgba(232,93,4,.35)}
+.bubble.ba .bl{border-left-color:rgba(52,211,153,.3)}
+.bubble strong{color:#f5a623}
+.bubble.ba strong{color:#34d399}
+.typing{display:none;align-items:flex-end;gap:8px}
+.tdots{padding:11px 14px;background:#161922;border:1px solid #252a38;border-radius:16px 16px 16px 4px;display:flex;gap:4px;align-items:center}
+.dot{width:6px;height:6px;border-radius:50%;background:#e85d04;animation:bounce .9s infinite}
+.dot:nth-child(2){animation-delay:.18s}
+.dot:nth-child(3){animation-delay:.36s}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+#pending-bar{display:none;background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.25);border-radius:12px;padding:10px 14px;align-items:center;gap:10px;margin:6px 16px}
+#pending-bar p{flex:1;font-size:12px;color:#34d399}
+#btn-save{background:linear-gradient(135deg,#059669,#34d399);border:none;border-radius:8px;padding:5px 14px;color:white;font-size:12px;font-family:inherit;font-weight:700;cursor:pointer}
+#input-area{padding:9px 16px 15px;background:rgba(13,15,20,.97);border-top:1px solid #1c2030;flex-shrink:0}
+#sync-status{display:none;align-items:center;gap:5px;margin-bottom:6px}
+#sync-dot{width:5px;height:5px;border-radius:50%;background:#34d399}
+#sync-label{font-size:10.5px;color:#2d8c5a;font-weight:600}
+#input-row{display:flex;gap:8px;align-items:flex-end}
+#inp{flex:1;border-radius:13px;padding:10px 14px;font-size:13.5px;font-family:inherit;resize:none;outline:none;line-height:1.5;background:#161922;border:1.5px solid #252a38;color:#d0d8ea;transition:border .2s;max-height:120px}
+#inp:focus{border-color:#e85d04}
+#btn-send{width:42px;height:42px;border-radius:11px;border:none;cursor:pointer;background:linear-gradient(135deg,#e85d04,#f48c06);color:white;font-size:17px;flex-shrink:0;transition:all .2s;box-shadow:0 4px 14px rgba(232,93,4,.35)}
+#btn-send:disabled{background:#1e2230;color:#2a3045;box-shadow:none;cursor:not-allowed}
+.upd-item{display:flex;align-items:flex-start;gap:8px;background:#111c17;border:1px solid #1a2e27;border-radius:8px;padding:7px 10px;margin-bottom:5px}
+.upd-type{font-size:10px;background:rgba(52,211,153,.15);color:#34d399;border-radius:4px;padding:1px 6px;font-weight:700;white-space:nowrap}
+.upd-time{font-size:10px;color:#3a4a40}
+.upd-text{font-size:12px;color:#6b8f7e;line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;flex:1}
+.upd-del{background:none;border:none;color:#2d4a3e;cursor:pointer;font-size:13px;padding:2px 4px;flex-shrink:0}
+.upd-del:hover{color:#f87171}
+.adm-ex{background:#0e1a16;border:1px solid #1a2e27;color:#4a7a60;padding:9px 14px;border-radius:10px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;text-align:left;line-height:1.5;width:100%;margin-bottom:6px;transition:all .18s}
+.adm-ex:hover{border-color:#34d399;color:#34d399;background:rgba(52,211,153,.06)}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="logo">🏠</div>
+  <div style="flex:1;min-width:0">
+    <div id="title">The Little House <span id="badge-admin">QUẢN TRỊ</span></div>
+    <div id="subtitle">Mỹ Tho · Bến Tre · Tân An · 11 chi nhánh</div>
+  </div>
+  <button id="btn-updates">📋 <span id="upd-count">0</span> mục</button>
+  <button id="btn-toggle">⚙️ Quản lý</button>
+</div>
+
+<div id="updates-panel">
+  <div style="font-size:10.5px;color:#34d399;font-weight:700;letter-spacing:.8px;margin-bottom:8px">FIREBASE — <span id="panel-count">0</span> CẬP NHẬT</div>
+  <div id="upd-list"></div>
+</div>
+
+<div id="messages">
+  <div class="welcome" id="wc-chat">
+    <div class="w-icon" style="background:linear-gradient(135deg,#e85d04,#f48c06);box-shadow:0 10px 36px rgba(232,93,4,.35)">🏠</div>
+    <div class="w-title">Hỏi gì cũng được!</div>
+    <div class="w-sub">Cẩm nang vận hành đã nhúng sẵn.<br/>Hỏi về <span style="color:#e85d04">giá, quy trình, chi nhánh, Netflix…</span></div>
+    <div class="quick-btns">
+      <button class="qbtn">Ai dọn phòng Riverside?</button>
+      <button class="qbtn">Tính tiền check-in sớm lúc 9h?</button>
+      <button class="qbtn">TK Netflix của Hồ Văn Nhánh?</button>
+      <button class="qbtn">Khách hủy phòng ngày mai?</button>
+      <button class="qbtn">Combo 6h tính tiền thế nào?</button>
+      <button class="qbtn">Quy trình ghi sheet booking?</button>
+      <button class="qbtn">Nguyên căn Riverside giá bao nhiêu?</button>
+    </div>
+  </div>
+  <div class="welcome" id="wc-admin" style="display:none">
+    <div class="w-icon" style="background:linear-gradient(135deg,#059669,#34d399);box-shadow:0 10px 36px rgba(5,150,105,.35)">⚙️</div>
+    <div class="w-title">Chế độ Quản trị</div>
+    <div class="w-sub" style="color:#3a5e4a">Nhắn thông tin cần cập nhật. Bot xác nhận → lưu Firebase → <span style="color:#34d399">tất cả nhân viên thấy ngay.</span></div>
+    <div style="width:100%;max-width:440px">
+      <button class="adm-ex"><span style="opacity:.5">VD: </span>Tân An 3 tăng giá nguyên căn lên 1.900.000đ từ 1/6</button>
+      <button class="adm-ex"><span style="opacity:.5">VD: </span>Chị Kiều nghỉ thai sản, Căn 2 và 6 chuyển cho chị Mai dọn</button>
+      <button class="adm-ex"><span style="opacity:.5">VD: </span>Thêm chi nhánh Cần Thơ 1 tại 123 Nguyễn Trãi, 3 phòng, 500k/đêm</button>
+    </div>
+  </div>
+  <div class="typing" id="typing">
+    <div class="avatar" id="typing-av" style="background:linear-gradient(135deg,#e85d04,#f48c06)">🏠</div>
+    <div class="tdots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  </div>
+</div>
+
+<div id="pending-bar">
+  <span style="font-size:18px">💾</span>
+  <p>Nhắn <strong>"ok"</strong> để lưu Firebase, hoặc <strong>"sửa"</strong> để điều chỉnh.</p>
+  <button id="btn-save">Lưu ✓</button>
+</div>
+
+<div id="input-area">
+  <div id="sync-status">
+    <div id="sync-dot"></div>
+    <span id="sync-label">Firebase · 0 cập nhật</span>
+  </div>
+  <div id="input-row">
+    <textarea id="inp" rows="1" placeholder="Hỏi về quy trình, giá, chi nhánh, Netflix…"></textarea>
+    <button id="btn-send" disabled>➤</button>
+  </div>
+</div>
+
+<script>
+var GEMINI_KEY = "AIzaSyAFGgeareApHDPsPE4el_sXX2qkBd2-oX8";
+var GEMINI_MODELS = ["gemini-2.0-flash-lite","gemini-2.0-flash-exp","gemini-1.5-flash"];
+var GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=" + GEMINI_KEY;
+
+var db;
+function setupFirebase() {
+  if (typeof firebase === 'undefined') {
+    setTimeout(setupFirebase, 100);
+    return;
+  }
+  if (!firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyD5qPJry70XGUL9Jd6ahzynKtDzgRyohrM",
+      authDomain: "tlh-chatbot.firebaseapp.com",
+      projectId: "tlh-chatbot",
+      storageBucket: "tlh-chatbot.firebasestorage.app",
+      messagingSenderId: "377885494207",
+      appId: "1:377885494207:web:6ede0c8e33ceab3c2b2f0a"
+    });
+  }
+  db = firebase.firestore();
+  initFirebase();
+}
+
+var mode = "chat", updates = [], chatHistory = [], adminHistory = [], loading = false, pendingUpdate = null;
+
+var BASE_PROMPT = "Bạn là trợ lý AI nội bộ của The Little House - chuỗi homestay tại Mỹ Tho, Bến Tre và Tân An.\nHỗ trợ nhân viên Admin/CSKH tra cứu thông tin vận hành VÀ hướng dẫn cách trả lời khách tự nhiên.\n\nCÁCH TRẢ LỜI: Luôn trả lời theo 2 phần:\nPhần 1 — Thông tin nội bộ: ngắn gọn, chính xác.\nPhần 2 — Gợi ý trả lời khách: viết sẵn tin nhắn mẫu, bắt đầu bằng Dạ, dùng ạ cuối câu, tự nhiên, dễ copy.\nNếu chưa chắc → ghi ⚠️ Chưa xác nhận.\nNếu câu hỏi nội bộ thuần túy → không cần phần gợi ý khách.\n\n=== DỮ LIỆU VẬN HÀNH ===\n\nMỸ THO:\n1. Lê Văn Phẩm 1 (Căn 2) - Chị Kiều dọn - 211/9C Lê Văn Phẩm, P.Thới Sơn\n   Máy giặt, bếp chung trệt, đậu xe sân. Phòng: 101(trệt,WC ngoài), 201(k cửa sổ), 202(ban công)\n   Netflix: lmurraylora@gmail.com / cuku10@ / Profile 3 / Mã: 6969\n\n2. Lê Văn Phẩm 2 (Căn 6) - Chị Kiều dọn - 357/10/15B Nguyễn Thị Thập, P.Thới Sơn\n   Gần GO!, bếp chung trệt, đậu xe sân. Netflix: 1688@binvn.icu / laka12@\n\n3. Hồ Văn Nhánh (Căn 3) - Chị Thủy dọn - Hẻm 37 Hồ Văn Nhánh, P.Đạo Thạnh\n   Bếp chung trệt, tủ lạnh trệt. Nguyên căn: 1.500.000đ/đêm.\n   Netflix: bm5@meobin.icu / neka12@ / Profile 2 / Pin: 9999\n\n4. Đoàn Thị Nghiệp (Căn 4) - Chị Thủy dọn - Hẻm 93 Đoàn Thị Nghiệp, P.5\n   Nguyên căn: 1.400.000-1.500.000đ/đêm. Netflix: b28@openk.top / khea23@ / Profile 2\n\n5. Riverside 1 (Căn 8) - Cô Ngọc dọn - 500 Hoàng Sa, P.Thới Sơn\n   Ban công có tủ lạnh mini, phòng cửa sổ không máy lạnh, bếp+tủ lạnh trệt\n   Netflix: b26@nutv.top / pinky22@ / Profile 4\n\n6. Riverside 2 (Căn 7) - Cô Ngọc dọn - 500 Hoàng Sa (sát RVS1)\n   6 phòng (3 ban công view sông, 3 cửa sổ lớn). Nguyên căn RVS1&2: 3.500.000đ/đêm (12 khách).\n   Netflix: b30@nutv.top / oyee53@ / Profile 4\n\nBẾN TRE (chị GR Bến Tre dọn):\n1. Bến Tre 1 - Căn E2, Đường D5 - 4 phòng, 8 khách. Nguyên căn: 1.800.000đ. Netflix: b15@vivu.top / kiki12@\n2. Bến Tre 2 - Căn A3, Đường D3 - 3 phòng. Nguyên căn: 1.650.000đ. Netflix: b33@nutv.top / han228@\n\nTÂN AN (Chị Nhàn, Chị Tuyền dọn):\n1. Tân An 1 - Căn A1-12, Đường số 7. Bếp trong phòng, máy bắp rang, máy đá. Nguyên căn: 1.700.000đ\n2. Tân An 2 - Căn A5-26, Đường BT01. Bếp trong phòng, máy đá. Nguyên căn: 1.600.000đ\n3. Tân An 3 - Căn A4-70, Đường BT09. Bếp+tủ lạnh trệt, quầy đồ ăn 15k. Nguyên căn: 1.700.000đ\n\nGIÁ NGUYÊN CĂN: LVP1&2: 1.600k | HVN: 1.500k | ĐTN: 1.400-1.500k | RVS1&2: 3.500k (12 khách) | BT1: 1.800k | BT2: 1.650k | TA1: 1.700k | TA2: 1.600k | TA3: 1.700k\nPhụ thu thêm người: 150k/người/ngày. Chuẩn: 3P=6k, 4P=8k, 6P=12k\n\nCOMBO & GIỜ:\n- Ngày Đêm: Nhận 14h → Trả 12h hôm sau\n- Đêm: Nhận 21h → Trả 8h (linh động 20h-trả 12h)\n- Giờ: tối thiểu 2h. 3h=2h+80k. 5h=4h+80k. 6h=giá 5h (tặng 1h).\n- Gia hạn: 80k/h, 40k/30p. Nguyên căn gia hạn: 100k/h\n- Check-in sớm trước 12h: (12 - giờ vào) x 80k + giá combo. VD 8h: 4x80k=320k + combo\n- Làm tròn theo mốc 30p hoặc 1 tiếng.\n\nQUY TRÌNH CSKH:\nB1: Hỏi ngày/giờ nhận/trả TRƯỚC khi báo giá.\nB2: KH mới: SĐT + CCCD (≥16t). KH cũ: SĐT.\nB3: Cọc 50%. Đủ 100% trước khi nhận phòng.\nB4: Ghi Sheet: Tên + FB/Zalo + Giờ in. Giờ out khác 12h ghi rõ. KQD=không qua đêm.\nB5: Gửi Pass trước 15-30p.\nB6: Gia hạn: Check sheet → thu tiền → báo nhóm dọn.\n\nPHÂN CÔNG DỌN: Căn 2,6→Chị Kiều | Căn 3,4→Chị Thủy | Căn 7,8→Cô Ngọc | BT1&2→Chị GR Bến Tre | TA1-3→Chị Nhàn, Chị Tuyền\n\nCHÍNH SÁCH HỦY: Trước 3 ngày: hoàn 100% | Trước 1-2 ngày: hoàn 50% | Trong ngày: không hỗ trợ\n\nƯU ĐÃI THÀNH VIÊN (≥3 lần): 3h→+30p | 5h→+1h | Ngày đêm check-in từ 13h | Tuần: -5% | Tháng: -5-10%\n\nTHIẾT BỊ:\n- Máy chiếu (100% phòng, không TV): Remote đen bật+HDMI. Remote trắng Netflix/YT. Mất tiếng: tăng volume, đổi phim, restart.\n- Netflix văng: xin mã 8 số → admin đăng nhập → Cập nhật hộ gia đình → Gửi Email → đợi 3-5p\n- Máy lạnh: không điện→kiểm tra công tắc cửa. Không mát→chế độ COOL. Remote không ăn→thay pin.\n- Smart Lock: chạm nhẹ màn hình→nhập pass (KHÔNG chạm vân tay).\n- Nước nóng: gạt TRÁI. Bếp từ: công tắc dưới hộc bếp.\n\nPHỤ THU: Thêm người: 150k | Mất thẻ: 200k | Làm dơ chăn: 80k\nTHANH TOÁN: TECHCOMBANK - 19038285373016 - HUYNH THANH NGUYEN\nKHÔNG ĐƯỢC: Không cung cấp BCS | Không setup sinh nhật | Không dùng ổ khóa cơ cổng | Không leak thông tin";
+
+var ADMIN_PROMPT = "Bạn là trợ lý xử lý cập nhật thông tin nội bộ cho The Little House.\nAdmin nhắn thông tin cần cập nhật. Bạn tóm tắt và xác nhận theo format:\n\n✅ **Đã hiểu. Tôi sẽ lưu thông tin này:**\n\n[Tóm tắt nội dung]\n\n---\n🗓️ Cập nhật lúc: [thời gian]\n📂 Loại thông tin: [Giá / Nhân sự / Thiết bị / Chính sách / Chi nhánh / Khác]\n\nBạn có muốn chỉnh sửa gì không?\n\nTrả lời bằng tiếng Việt.";
+
+// ── FIREBASE ──
+function initFirebase() {
+  db.collection("tlh_updates").orderBy("createdAt","asc").onSnapshot(function(snap) {
+    updates = [];
+    snap.forEach(function(d) { updates.push(Object.assign({id:d.id}, d.data())); });
+    renderUpdates();
+  });
+}
+
+function saveToFirebase(u, cb) {
+  db.collection("tlh_updates").add({
+    content: u.content, type: u.type, timestamp: u.timestamp, createdAt: Date.now()
+  }).then(function(){ cb(true); }).catch(function(){ cb(false); });
+}
+
+function deleteUpdate(id) {
+  db.collection("tlh_updates").doc(id).delete();
+}
+
+function renderUpdates() {
+  var n = updates.length;
+  document.getElementById("upd-count").textContent = n;
+  document.getElementById("panel-count").textContent = n;
+  document.getElementById("btn-updates").style.display = (mode==="admin"&&n>0)?"flex":"none";
+  document.getElementById("sync-label").textContent = "Firebase · "+n+" cập nhật";
+  var html = "";
+  updates.forEach(function(u){
+    html += '<div class="upd-item"><div style="flex:1"><div style="display:flex;gap:6px;align-items:center;margin-bottom:3px"><span class="upd-type">'+u.type+'</span><span class="upd-time">'+u.timestamp+'</span></div><div class="upd-text">'+u.content+'</div></div><button class="upd-del" onclick="deleteUpdate(\''+u.id+'\')">✕</button></div>';
+  });
+  document.getElementById("upd-list").innerHTML = html;
+}
+
+// ── GEMINI ──
+function callGemini(sysprompt, history, text, cb) {
+  var contents = [{role:"user",parts:[{text:sysprompt}]},{role:"model",parts:[{text:"Đã hiểu. Sẵn sàng hỗ trợ."}]}];
+  history.forEach(function(m){ contents.push({role:m.role==="user"?"user":"model",parts:[{text:m.content}]}); });
+  contents.push({role:"user",parts:[{text:text}]});
+  var body = JSON.stringify({contents:contents,generationConfig:{maxOutputTokens:1200,temperature:0.7}});
+  function tryModel(idx) {
+    if(idx >= GEMINI_MODELS.length){ cb(new Error("Tất cả model đều lỗi"), null); return; }
+    var url = "https://generativelanguage.googleapis.com/v1beta/models/"+GEMINI_MODELS[idx]+":generateContent?key="+GEMINI_KEY;
+    fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:body})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var t = d.candidates&&d.candidates[0]&&d.candidates[0].content&&d.candidates[0].content.parts&&d.candidates[0].content.parts[0].text;
+      if(!t){ console.warn("Model "+GEMINI_MODELS[idx]+" không trả lời, thử tiếp...", d); tryModel(idx+1); }
+      else { cb(null, t); }
+    }).catch(function(e){ console.warn("Model "+GEMINI_MODELS[idx]+" lỗi:", e); tryModel(idx+1); });
+  }
+  tryModel(0);
+}
+
+function buildPrompt() {
+  var p = BASE_PROMPT;
+  if(updates.length>0){
+    p+="\n\n=== CẬP NHẬT MỚI (ưu tiên cao hơn) ===\n";
+    updates.forEach(function(u,i){ p+="--- #"+(i+1)+" ["+u.timestamp+"] ["+u.type+"] ---\n"+u.content+"\n\n"; });
+  }
+  return p;
+}
+
+// ── UI ──
+function md(text, adm) {
+  var col=adm?"#34d399":"#f5a623", bc=adm?"rgba(52,211,153,.3)":"rgba(232,93,4,.35)";
+  return text.split("\n").map(function(line){
+    if(/^-{3,}$/.test(line.trim())) return "<hr/>";
+    var bullet=/^[-•]/.test(line.trim());
+    var h=line.replace(/\*\*(.*?)\*\*/g,'<strong style="color:'+col+'">$1</strong>');
+    return bullet?'<p class="bl" style="border-left-color:'+bc+'">'+h+"</p>":"<p>"+h+"</p>";
+  }).join("");
+}
+
+function addMsg(text, role, adm) {
+  document.getElementById(adm?"wc-admin":"wc-chat").style.display="none";
+  var msgs=document.getElementById("messages");
+  var row=document.createElement("div");
+  row.className="msg-row"+(role==="user"?" user":"");
+  if(role!=="user"){
+    var av=document.createElement("div");
+    av.className="avatar";
+    av.style.background=adm?"linear-gradient(135deg,#059669,#34d399)":"linear-gradient(135deg,#e85d04,#f48c06)";
+    av.textContent=adm?"⚙️":"🏠";
+    row.appendChild(av);
+  }
+  var bub=document.createElement("div");
+  bub.className="bubble "+(role==="user"?(adm?"ua":"u"):(adm?"ba":"b"));
+  bub.innerHTML=role==="user"?text.replace(/</g,"&lt;"):md(text,adm);
+  row.appendChild(bub);
+  msgs.insertBefore(row,document.getElementById("typing"));
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function setLoading(val) {
+  loading=val;
+  document.getElementById("typing").style.display=val?"flex":"none";
+  document.getElementById("btn-send").disabled=val||!document.getElementById("inp").value.trim();
+  document.getElementById("messages").scrollTop=9999;
+}
+
+function toggleMode() {
+  mode=mode==="chat"?"admin":"chat";
+  pendingUpdate=null;
+  document.getElementById("pending-bar").style.display="none";
+  var a=mode==="admin";
+  document.getElementById("logo").style.background=a?"linear-gradient(135deg,#059669,#34d399)":"linear-gradient(135deg,#e85d04,#f48c06)";
+  document.getElementById("logo").textContent=a?"⚙️":"🏠";
+  document.getElementById("badge-admin").style.display=a?"inline":"none";
+  document.getElementById("subtitle").textContent=a?(updates.length+" cập nhật đang hoạt động"):"Mỹ Tho · Bến Tre · Tân An · 11 chi nhánh";
+  document.getElementById("btn-toggle").textContent=a?"💬 Chat":"⚙️ Quản lý";
+  document.getElementById("btn-toggle").style.background=a?"rgba(232,93,4,.1)":"rgba(52,211,153,.1)";
+  document.getElementById("btn-toggle").style.borderColor=a?"rgba(232,93,4,.4)":"rgba(52,211,153,.35)";
+  document.getElementById("btn-toggle").style.color=a?"#f48c06":"#34d399";
+  document.getElementById("inp").style.background=a?"#0e1a16":"#161922";
+  document.getElementById("inp").placeholder=a?"Nhắn thông tin cần cập nhật…":"Hỏi về quy trình, giá, chi nhánh, Netflix…";
+  document.getElementById("inp").style.borderColor=a?"#1a2e27":"#252a38";
+  document.getElementById("typing-av").style.background=a?"linear-gradient(135deg,#059669,#34d399)":"linear-gradient(135deg,#e85d04,#f48c06)";
+  document.getElementById("typing-av").textContent=a?"⚙️":"🏠";
+  document.getElementById("sync-status").style.display=a?"flex":"none";
+  document.getElementById("wc-chat").style.display=a?"none":"flex";
+  document.getElementById("wc-admin").style.display=a?"flex":"none";
+  renderUpdates();
+}
+
+function toggleUpdatesPanel() {
+  var p=document.getElementById("updates-panel");
+  p.style.display=p.style.display==="block"?"none":"block";
+}
+
+function sendMsg(text) {
+  var inp=document.getElementById("inp");
+  var t=(text||inp.value).trim();
+  if(!t||loading) return;
+  inp.value=""; inp.style.height="";
+  document.getElementById("btn-send").disabled=true;
+  if(mode==="admin") handleAdmin(t); else handleChat(t);
+}
+
+function handleChat(t) {
+  addMsg(t,"user",false);
+  chatHistory.push({role:"user",content:t});
+  setLoading(true);
+  callGemini(buildPrompt(),chatHistory.slice(0,-1),t,function(err,reply){
+    if(err||!reply){ addMsg("⚠️ Lỗi kết nối. Thử lại nhé!","assistant",false); }
+    else { chatHistory.push({role:"assistant",content:reply}); addMsg(reply,"assistant",false); }
+    setLoading(false);
+  });
+}
+
+function handleAdmin(t) {
+  if(pendingUpdate&&/^(ok|oke|đúng|lưu|xác nhận|yes|đồng ý)/i.test(t)){
+    addMsg(t,"user",true); setLoading(true);
+    saveToFirebase(pendingUpdate,function(ok){
+      pendingUpdate=null; document.getElementById("pending-bar").style.display="none"; setLoading(false);
+      addMsg(ok?"✅ **Đã lưu Firebase thành công!**\n\nCập nhật tự động áp dụng cho **tất cả nhân viên** ngay lập tức.":"⚠️ Lỗi lưu Firebase. Thử lại nhé.","assistant",true);
+    }); return;
+  }
+  if(pendingUpdate&&/^(sửa|không|cancel|hủy|thôi)/i.test(t)){
+    pendingUpdate=null; document.getElementById("pending-bar").style.display="none";
+    addMsg(t,"user",true); addMsg("Đã hủy. Nhắn lại thông tin cần cập nhật nhé.","assistant",true); return;
+  }
+  addMsg(t,"user",true); adminHistory.push({role:"user",content:t}); setLoading(true);
+  var now=new Date().toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"});
+  callGemini(ADMIN_PROMPT,[],("[Thời điểm: "+now+"]\n\n"+t),function(err,reply){
+    if(err||!reply){ addMsg("⚠️ Lỗi kết nối. Thử lại nhé!","assistant",true); setLoading(false); return; }
+    adminHistory.push({role:"assistant",content:reply});
+    var tm=reply.match(/📂 Loại thông tin: ([^\n]+)/);
+    pendingUpdate={content:t,type:tm?tm[1].trim():"Khác",timestamp:now};
+    document.getElementById("pending-bar").style.display="flex";
+    addMsg(reply,"assistant",true); setLoading(false);
+  });
+}
+
+// ── EVENTS ──
+document.getElementById("btn-toggle").addEventListener("click",toggleMode);
+document.getElementById("btn-updates").addEventListener("click",toggleUpdatesPanel);
+document.getElementById("btn-save").addEventListener("click",function(){sendMsg("ok");});
+document.getElementById("btn-send").addEventListener("click",function(){sendMsg();});
+document.getElementById("inp").addEventListener("keydown",function(e){
+  if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMsg();}
+});
+document.getElementById("inp").addEventListener("input",function(){
+  this.style.height="auto";
+  this.style.height=Math.min(this.scrollHeight,120)+"px";
+  document.getElementById("btn-send").disabled=!this.value.trim();
+});
+document.querySelectorAll(".qbtn").forEach(function(b){
+  b.addEventListener("click",function(){sendMsg(b.textContent);});
+});
+document.querySelectorAll(".adm-ex").forEach(function(b){
+  b.addEventListener("click",function(){
+    document.getElementById("inp").value=b.textContent.replace(/VD: |Ví dụ: /,"");
+    document.getElementById("btn-send").disabled=false;
+    document.getElementById("inp").focus();
+  });
+});
+
+setupFirebase();
+</script>
+</body>
+</html>

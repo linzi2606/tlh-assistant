@@ -1,0 +1,13 @@
+{
+  "name": "tlh-booking-bot",
+  "version": "1.0.0",
+  "description": "TLH Booking Bot - đọc nhóm Telegram và ghi Firebase",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {}
+}
